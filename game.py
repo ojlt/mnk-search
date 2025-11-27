@@ -1,12 +1,7 @@
-"""Implements a generalized (m,n,k) game solver using bitboards and pruning."""
-
-import time
-
-
 class Game:
     """Bitboard game engine with Memoization and Alpha-Beta Pruning."""
 
-    def __init__(self, m: int, n: int, k: int) -> None:
+    def __init__(self, m, n, k):
         """Initialize the game parameters, bitmasks, and winning shift directions."""
         self.m = m
         self.n = n
@@ -15,6 +10,7 @@ class Game:
         self.max_board = 0
         self.min_board = 0
         self.memo = {}
+        self.node_count = 0
 
         shifts = []
         count = 1
@@ -29,19 +25,19 @@ class Game:
         self.full_mask = sum(1 << i for i in valid_indices)
         self.move_masks = tuple((1 << i) for i in valid_indices)
 
-    def make_max_move(self, row: int, col: int) -> None:
+    def make_max_move(self, row, col):
         """Place a piece for the maximizing player at the given coordinates."""
         self.max_board |= 1 << (row * self.w + col)
 
-    def make_min_move(self, row: int, col: int) -> None:
+    def make_min_move(self, row, col):
         """Place a piece for the minimizing player at the given coordinates."""
         self.min_board |= 1 << (row * self.w + col)
 
-    def is_valid_move(self, row: int, col: int) -> bool:
+    def is_valid_move(self, row, col):
         """Check if the cell at the specified row and column is empty."""
         return not ((self.max_board | self.min_board) & (1 << (row * self.w + col)))
 
-    def check_win(self, board: int) -> bool:
+    def check_win(self, board):
         """Determine if the provided bitboard contains a winning line of length k."""
         for d in self.directions:
             b = board
@@ -55,10 +51,13 @@ class Game:
 
     def get_best_move(self):
         """Calculate the optimal game value using standard Minimax recursion."""
+        self.memo = {}
+        self.node_count = 0
         return self.max_value(self.max_board, self.min_board)
 
-    def max_value(self, max_b: int, min_b: int) -> int:
-        """recursively compute the best score for the maximizing player."""
+    def max_value(self, max_b, min_b):
+        """Recursively compute the best score for the maximizing player."""
+        self.node_count += 1
         state_key = (max_b, min_b)
         if state_key in self.memo:
             return self.memo[state_key]
@@ -77,19 +76,17 @@ class Game:
         for mask in self.move_masks:
             if not (occupied & mask):
                 score = self.min_value(max_b | mask, min_b)
-
                 if score > best_score:
                     best_score = score
-
-                if best_score == 1:
-                    self.memo[state_key] = 1
-                    return 1
+                # Early stopping removed here.
+                # It will now check ALL moves even if it found a win.
 
         self.memo[state_key] = best_score
         return best_score
 
-    def min_value(self, max_b: int, min_b: int) -> int:
+    def min_value(self, max_b, min_b):
         """Recursively compute the best score for the minimizing player."""
+        self.node_count += 1
         state_key = (max_b, min_b)
         if state_key in self.memo:
             return self.memo[state_key]
@@ -108,13 +105,10 @@ class Game:
         for mask in self.move_masks:
             if not (occupied & mask):
                 score = self.max_value(max_b, min_b | mask)
-
                 if score < best_score:
                     best_score = score
-
-                if best_score == -1:
-                    self.memo[state_key] = -1
-                    return -1
+                # Early stopping removed here.
+                # It will now check ALL moves even if it found a win.
 
         self.memo[state_key] = best_score
         return best_score
@@ -122,10 +116,12 @@ class Game:
     def pruning_best_move(self):
         """Calculate the optimal game value using Alpha-Beta pruning."""
         self.memo = {}
+        self.node_count = 0
         return self.pruning_max(self.max_board, self.min_board, -2, 2)
 
-    def pruning_max(self, max_b: int, min_b: int, alpha: int, beta: int) -> int:
+    def pruning_max(self, max_b, min_b, alpha, beta):
         """Execute the maximizing step with Alpha-Beta pruning optimization."""
+        self.node_count += 1
         state_key = (max_b, min_b)
         if state_key in self.memo:
             return self.memo[state_key]
@@ -148,8 +144,9 @@ class Game:
         self.memo[state_key] = alpha
         return alpha
 
-    def pruning_min(self, max_b: int, min_b: int, alpha: int, beta: int) -> int:
+    def pruning_min(self, max_b, min_b, alpha, beta):
         """Execute the minimizing step with Alpha-Beta pruning optimization."""
+        self.node_count += 1
         state_key = (max_b, min_b)
         if state_key in self.memo:
             return self.memo[state_key]
@@ -172,11 +169,12 @@ class Game:
         self.memo[state_key] = beta
         return beta
 
-    def drawboard(self) -> None:
+    def drawboard(self):
         """Render a text-based representation of the current board state."""
         w = self.w
         max_b = self.max_board
         min_b = self.min_board
+        print(f"\nBoard ({self.m}x{self.n}):")
         for r in range(self.m):
             line = "|"
             for c in range(self.n):
@@ -188,23 +186,74 @@ class Game:
                 else:
                     line += " |"
             print(line)
+        print("-" * (self.n * 2 + 1))
+
+    def play(self):
+        """Main game loop for Human vs AI."""
+        print(f"Starting Game. You are Max (X), AI is Min (O).")
+        self.drawboard()
+
+        while True:
+            while True:
+                try:
+                    user_input = input("Enter move (row col): ").split()
+                    if not user_input:
+                        continue
+                    r, c = int(user_input[0]), int(user_input[1])
+                    if 0 <= r < self.m and 0 <= c < self.n and self.is_valid_move(r, c):
+                        self.make_max_move(r, c)
+                        break
+                    else:
+                        print("Invalid move.")
+                except (ValueError, IndexError):
+                    print("Invalid format. Use: row col")
+
+            self.drawboard()
+
+            if self.check_win(self.max_board):
+                print("You Win!")
+                break
+            if (self.max_board | self.min_board) & self.full_mask == self.full_mask:
+                print("Draw!")
+                break
+
+            print("AI is thinking...")
+            best_val = 2
+            best_move = None
+
+            # Reset counters for the AI's turn
+            self.memo = {}
+            self.node_count = 0
+
+            # Find the best move by checking all children of the current state
+            for r in range(self.m):
+                for c in range(self.n):
+                    if self.is_valid_move(r, c):
+                        mask = 1 << (r * self.w + c)
+                        # We are Minimizing, so we check the Max Value of the resulting state
+                        val = self.pruning_max(self.max_board, self.min_board | mask, -2, 2)
+                        if val < best_val:
+                            best_val = val
+                            best_move = (r, c)
+
+            print(f"States visited: {self.node_count}")
+
+            if best_move:
+                print(f"AI plays: {best_move}")
+                self.make_min_move(best_move[0], best_move[1])
+            else:
+                print("AI has no moves left.")
+
+            self.drawboard()
+
+            if self.check_win(self.min_board):
+                print("AI Wins!")
+                break
+            if (self.max_board | self.min_board) & self.full_mask == self.full_mask:
+                print("Draw!")
+                break
 
 
 if __name__ == "__main__":
-    g = Game(4, 4, 4)
-
-    # print("--- Minimax ---")
-    # start = time.perf_counter()
-    # val = g.get_best_move()
-    # end = time.perf_counter()
-    # print(f"Val: {val}")
-    # print(f"Time: {(end - start) * 1000:.4f}ms")
-    # print(f"States: {len(g.memo)}")
-
-    print("\n--- Alpha-Beta ---")
-    start = time.perf_counter()
-    val_prune = g.pruning_best_move()
-    end = time.perf_counter()
-    print(f"Val: {val_prune}")
-    print(f"Time: {(end - start) * 1000:.4f}ms")
-    print(f"States: {len(g.memo)}")
+    g = Game(3, 3, 3)
+    g.play()
