@@ -1,0 +1,50 @@
+# This file configures Ruff to enforce your course's style guide.
+
+# The main configuration section for Ruff's linter and formatter.
+[tool.ruff]
+# ✔️ "Maximum line length should be 100 characters"
+line-length = 100
+
+# Let Ruff know which version of Python you're using.
+# Replace "3.11" with your version if needed (e.g., "3.10").
+target-version = "py311"
+
+
+# --- Linter Settings ---
+[tool.ruff.lint]
+# Select rule categories. We're picking rules that match your guidelines.
+select = [
+    "E",    # Pycodestyle errors (e.g., syntax errors)
+    "W",    # Pycodestyle warnings (e.g., indentation)
+    "F",    # Pyflakes (e.g., unused imports/variables)
+    "N",    # Pep8-naming (for naming conventions ✔️)
+    "A",    # Flake8-builtins (to ban naming variables `list`, `int` etc. ❌)
+    "D",    # Pydocstyle (for docstring rules ✔️)
+    "SIM",  # Flake8-simplify (helps avoid overly nested code ✔️)
+    "N",
+]
+
+# Ignore specific rules that might be too strict or conflict with guidelines.
+ignore = [
+    # Your guide is flexible on docstring commands ("computes" vs "compute").
+    # This rule enforces the command style, so we turn it off.
+    "D401", 
+]
+
+
+
+# --- Specific Docstring Rules ---
+# This helps enforce your docstring guidelines.
+[tool.ruff.lint.pydocstyle]
+# You can choose a docstring style, but the rules selected above
+# are general enough to just check for presence and basic format.
+# "google" and "numpy" are common conventions.
+convention = "google"
+
+
+# --- Formatter Settings ---
+# This part handles automatic formatting, like spaces and line breaks.
+[tool.ruff.format]
+# The formatter will automatically handle rules like:
+# ✔️ `do_something(5)` instead of `do_something (5)`
+# ✔️ `numbers[2]` instead of `numbers [2]`
