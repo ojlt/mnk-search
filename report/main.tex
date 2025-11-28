@@ -1,0 +1,204 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\usepackage{graphicx}       % For importing images
+\usepackage{amsmath, amssymb} % For math symbols (m,n,k)
+\usepackage{hyperref}       % For clickable links in the PDF
+\usepackage{listings}       % For code snippets (Python/C++)
+\usepackage{xcolor}         % For code coloring
+\usepackage{booktabs}       % For professional looking tables
+\usepackage{float}          % To force image location
+\usepackage{parskip}
+
+% --- Code Snippet Styling ---
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{purple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% --- Document Info ---
+\title{An Analysis of Adversarial Search Techniques in $m,n,k$-games}
+\author{Owain Thorp and George Bateman}
+\date{\today}
+
+\begin{document}
+
+% --- Title Page ---
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+
+    \Huge
+    \textbf{An Analysis of Adversarial Search Techniques in $m,n,k$-games}
+
+    \vspace{1.5cm}
+
+    \Large
+    \textbf{Owain Thorp and George Bateman}
+
+    \vspace{1.5cm}
+
+    \large
+    Department of Computer Science\\
+    Imperial College London\\
+    Course Code / Subject
+
+    \vspace{2cm}
+
+    \today
+
+    \vfill
+\end{titlepage}
+\section{Code Overview}
+\subsection{\texttt{game.py}}
+This file contains all of the source code for the \texttt{Game} class, which contains the core logic for the $m,n,k$ game. It is worth noting that we use a \textit{bitboard} for keeping track of \texttt{min}/\texttt{max} board states. We use this more advanced technique for a significant drop in latency, which allowed us to probe higher order games with less compute.
+
+In our code, the board width is defined as $w = n + 1$. This creates a virtual "buffer column" to prevent horizontal win-checks from wrapping around to the next row. For a $3\times3$ board, $w=4$. To provide some more intuition, we provide some
+examples below.
+
+\subsubsection*{Empty Board}
+Because $w=4$, the indices of the board are not strictly sequential. Indices $3, 7,$ and $11$ are skipped (they act as the buffer). The valid indices for the playable cells are shown below:
+
+\begin{center}
+    \begin{tabular}{|c|c|c|}
+        \hline
+        0 & 1 & 2  \\
+        \hline
+        4 & 5 & 6  \\
+        \hline
+        8 & 9 & 10 \\
+        \hline
+    \end{tabular}
+    \\[5pt]
+    \textit{Figure 1: Bit index mapping for a $3\times3$ board with buffer $w=4$.}
+\end{center}
+Now we have indexed the board, we explain how to map board indices to bit representations.
+\subsubsection*{Populated Board}
+Let us continue with the example of a $3\times3$ board.
+Suppose \textbf{Max} (X) has moved twice and \textbf{Min} (O) has moved once.
+
+\begin{center}
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{X} &            & \textbf{X} \\
+        \hline
+                   & \textbf{O} &            \\
+        \hline
+                   &            &            \\
+        \hline
+    \end{tabular}
+    \\[5pt]
+    \textit{Figure 2: Game state with two Max pieces and one Min piece.}
+\end{center}
+
+To encode this information as a (binary) integer, we make use of the \textbf{bitshift} operation, denoted $\ll$. If we have some binary string
+$s$, $s \ll n$ is the bit string of $s$ followed by $n$ zeros. For example, if $s = 10101$ and $n=4$:
+
+\begin{equation*}
+    s \ll n = \dots 000101010000
+\end{equation*}
+In general, to encode some index $i$, we use the operation $1 \ll i$. For boards with multiple indices, we simply perform addition. In the above board, this corresponds to:
+
+\begin{enumerate}
+    \item \textbf{Max's Board (\texttt{self.max\_board}):} \\
+          Max is at (0,0) and (0,2). The indices are $0$ and $2$.
+          \[
+              \text{Value} = 2^0 + 2^2 = 1 + 4 = 5 \quad (\text{Binary: } \texttt{...000000101})
+          \]
+
+    \item \textbf{Min's Board (\texttt{self.min\_board}):} \\
+          Min is at row 1, col 1. The index is $1 \times 4 + 1 = 5$.
+          \[
+              \text{Value} = 2^5 = 32 \quad (\text{Binary: } \texttt{...000100000})
+          \]
+\end{enumerate}
+
+To check if a square is occupied (as seen in \texttt{is\_valid\_move}), the code performs a bitwise OR of both boards:
+\[
+    \texttt{occupied} = 5 \mid 32 = 37 \quad (\text{Binary: } \texttt{...000100101})
+\]
+This integer uniquely represents the entire configuration of the board in memory, as the encoding function is a bijection.
+
+\subsubsection*{Win Detection}
+We check for wins using more highly efficient bitwise shifts rather than iterating through coordinates. To check for a winning line of length $k$, we iteratively shift the board and compute the bitwise AND.
+
+For a vertical win check on a $3 \times 3$ board ($k=3, w=4$) with pieces at indices 0, 4, and 8:
+\[
+    \text{Board } B = 2^0 + 2^4 + 2^8 = 1 + 16 + 256 = 273 \quad (\texttt{...100010001})
+\]
+The algorithm checks direction $d=4$ (Vertical):
+\begin{enumerate}
+    \item \textbf{Shift 1:} $B_1 = B \ \& \ (B \gg 4)$
+          \[
+              B \gg 4 = 17 \quad (\texttt{...000010001})
+          \]
+          \[
+              B_1 = 273 \ \& \ 17 = 17 \quad (\texttt{...000010001})
+          \]
+          The AND will return true, as we have some overlapping 1's. This means that we have a vertical sequence of at least 2. We repeat again to test whether this sequences is also of length 3.
+
+    \item \textbf{Shift 2:} $B_2 = B_1 \ \& \ (B_1 \gg 4)$
+          \[
+              B_1 \gg 4 = 1 \quad (\texttt{...000000001})
+          \]
+          \[
+              B_2 = 17 \ \& \ 1 = 1 \quad (\texttt{...000000001})
+          \]
+\end{enumerate}
+Since AND will again return true, so we do indeed have a win. In the code, process is repeated for all four directions: Horizontal ($1$), Vertical ($w$), Diagonal ($w+1$), and Anti-Diagonal ($w-1$).
+
+\subsection*{Memoization}
+Another computational optimisation used is \textit{memoization}. In the standard non-pruning MinMax, we cache the function values of visited states in order to drastically reduce the number of repeat calls.
+However, this direct caching strategy cannot be naively applied to Alpha-Beta pruning because the algorithm often returns a lower or upper bound dependent on the specific search window ($\alpha, \beta$) rather than the exact value of the node. More caching strategies can alleviate this issue,
+but did not consider them for this assignment.
+
+\subsection{\texttt{tests.py}}
+This file contains all of the logic for out code evaluation. The script automatically runs many games across the different search architectures.
+The results are printed in terminal as well as being saved to a csv file.
+\section{Results and Discussion}
+For our experiments, we benchmarked wall-clock time on the standard MinMax search with and without memoization, as well alpha/beta pruning. We explored a
+wide range of board sizes, but insisted a time cutoff of 100s to take a measurement.
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lcccccc}
+        \toprule
+                       & \multicolumn{2}{c}{\textbf{MM Memoization}} & \multicolumn{2}{c}{\textbf{MM No Memoization}} & \multicolumn{2}{c}{\textbf{Pruning}}                                                   \\
+        \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+        \textbf{Board} & \textbf{Time}                               & \textbf{Nodes}                                 & \textbf{Time}                        & \textbf{Nodes} & \textbf{Time} & \textbf{Nodes} \\
+        \midrule
+        (3,3,3)        & 0.07301s                                    & 16,168                                         & 0.65823s                             & 549,946        & 0.08058s      & 18,297         \\
+        (3,4,3)        & 0.34567s                                    & 391,063                                        & $>$100s                              & N/A            & 0.18935s      & 75,266         \\
+        (4,3,3)        & 0.39619s                                    & 391,063                                        & $>$100s                              & N/A            & 0.11013s      & 30,936         \\
+        (4,4,3)        & 20.73940s                                   & 23,453,345                                     & $>$100s                              & N/A            & 1.09564s      & 947,128        \\
+        (3,5,3)        & 7.14333s                                    & 8,813,674                                      & $>$100s                              & N/A            & 2.07480s      & 1,755,917      \\
+        (4,5,3)        & $>$100s                                     & N/A                                            & $>$100s                              & N/A            & 41.39088s     & 37,063,008     \\
+        (4,4,4)        & 44.79307s                                   & 51,562,425                                     & $>$100s                              & N/A            & $>$100s       & N/A            \\
+        (5,4,4)        & $>$100s                                     & N/A                                            & $>$100s                              & N/A            & $>$100s       & N/A            \\
+        \bottomrule
+    \end{tabular}
+    \caption{Performance comparison of Memoization, No Memoization, and Pruning.}
+    \label{tab:performance_comparison}
+\end{table}
+\end{document}

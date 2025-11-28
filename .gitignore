@@ -1,2 +1,43 @@
 .venv/
-__pycache__/
+__pycache__/ 
+### Core LaTeX Auxiliary Files ###
+*.aux
+*.log
+*.toc
+*.lof
+*.lot
+*.out
+*.glo
+*.gls
+*.ist
+*.nav
+*.snm
+*.vrb
+
+### Bibliography & Index ###
+*.bbl
+*.blg
+*.idx
+*.ind
+*.ilg
+*.bcf
+*.xml
+
+### Build Tool Artifacts (latexmk, etc.) ###
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
+
+### PDF Output ###
+# Usually, you do not want to version control the generated PDF
+# as it bloats the repo size.
+*.pdf
+
+### Editor/IDE Specific ###
+# Kile, TeXShop, TeXworks, etc.
+*.ds_store
+*.swp
+*~
+*.backup
+.vscode/

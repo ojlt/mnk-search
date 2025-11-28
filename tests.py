@@ -1,11 +1,11 @@
-"""Benchmarks Minimax vs Alpha-Beta Pruning with timeouts and CSV export."""
+"""Benchmarks Minimax (Memo), No-Memo, and Alpha-Beta Pruning with timeouts and CSV export."""
 
 import time
 import multiprocessing
 import csv
 from game import Game
 
-TIMEOUT_LIMIT = 300  # 5 minutes
+TIMEOUT_LIMIT = 100  # 5 minutes
 
 
 def worker(m, n, k, mode, queue):
@@ -15,6 +15,8 @@ def worker(m, n, k, mode, queue):
         g.get_best_move()
     elif mode == "pruning":
         g.pruning_best_move()
+    elif mode == "nomemo":
+        g.get_best_move_no_memo()
     queue.put(g.node_count)
 
 
@@ -51,7 +53,14 @@ def run_suite():
         (5, 4, 4),
     ]
 
-    header = f"{'Board (m,n,k)':<15} | {'Minimax Time':<14} | {'Minimax Nodes':<14} | {'Pruning Time':<14} | {'Pruning Nodes':<14}"
+    # Adjusting formatting to fit the new columns
+    header = (
+        f"{'Board':<9} | "
+        f"{'Memo Time':<11} | {'Memo Nodes':<11} | "
+        f"{'NoMemo Time':<12} | {'NoMemo Nodes':<12} | "
+        f"{'Pruning Time':<12} | {'Pruning Nodes':<13}"
+    )
+
     print("-" * len(header))
     print(header)
     print("-" * len(header))
@@ -61,20 +70,39 @@ def run_suite():
         writer = csv.writer(csvfile)
         # Write CSV Header
         writer.writerow(
-            ["m", "n", "k", "Minimax Time", "Minimax Nodes", "Pruning Time", "Pruning Nodes"]
+            [
+                "m",
+                "n",
+                "k",
+                "Memo Time",
+                "Memo Nodes",
+                "NoMemo Time",
+                "NoMemo Nodes",
+                "Pruning Time",
+                "Pruning Nodes",
+            ]
         )
 
         for m, n, k in test_params:
+            # 1. Standard Minimax (With Memo)
             mm_time, mm_nodes = run_with_timeout(m, n, k, "minimax")
+
+            # 2. Minimax (No Memo)
+            nm_time, nm_nodes = run_with_timeout(m, n, k, "nomemo")
+
+            # 3. Alpha-Beta Pruning
             ab_time, ab_nodes = run_with_timeout(m, n, k, "pruning")
 
             print(
-                f"({m},{n},{k})".ljust(15)
-                + f" | {mm_time:<14} | {mm_nodes:<14} | {ab_time:<14} | {ab_nodes:<14}"
+                f"({m},{n},{k})".ljust(9)
+                + " | "
+                + f"{mm_time:<11} | {mm_nodes:<11} | "
+                + f"{nm_time:<12} | {nm_nodes:<12} | "
+                + f"{ab_time:<12} | {ab_nodes:<13}"
             )
 
             # Write row to CSV
-            writer.writerow([m, n, k, mm_time, mm_nodes, ab_time, ab_nodes])
+            writer.writerow([m, n, k, mm_time, mm_nodes, nm_time, nm_nodes, ab_time, ab_nodes])
 
 
 if __name__ == "__main__":
