@@ -8,7 +8,7 @@
 \usepackage{amsmath, amssymb} % For math symbols (m,n,k)
 \usepackage{hyperref}       % For clickable links in the PDF
 \usepackage{listings}       % For code snippets (Python/C++)
-\usepackage{xcolor}         % For code coloring
+\usepackage{xcolor}         % For code colouring
 \usepackage{booktabs}       % For professional looking tables
 \usepackage{float}          % To force image location
 \usepackage{parskip}
@@ -39,7 +39,7 @@
 \lstset{style=mystyle}
 
 % --- Document Info ---
-\title{An Analysis of Adversarial Search Techniques in $m,n,k$-games}
+\title{An Analysis of Adversarial Search Techniques in $(m,n,k)$-games}
 \author{Owain Thorp and George Bateman}
 \date{\today}
 
@@ -51,7 +51,7 @@
     \vspace*{1cm}
 
     \Huge
-    \textbf{An Analysis of Adversarial Search Techniques in $m,n,k$-games}
+    \textbf{An Analysis of Adversarial Search Techniques in $(m,n,k)$-games}
 
     \vspace{1.5cm}
 
@@ -63,7 +63,7 @@
     \large
     Department of Computer Science\\
     Imperial College London\\
-    Course Code / Subject
+
 
     \vspace{2cm}
 
@@ -71,12 +71,13 @@
 
     \vfill
 \end{titlepage}
-\section{Code Overview}
-\subsection{\texttt{game.py}}
-This file contains all of the source code for the \texttt{Game} class, which contains the core logic for the $m,n,k$ game. It is worth noting that we use a \textit{bitboard} for keeping track of \texttt{min}/\texttt{max} board states. We use this more advanced technique for a significant drop in latency, which allowed us to probe higher order games with less compute.
 
-In our code, the board width is defined as $w = n + 1$. This creates a virtual "buffer column" to prevent horizontal win-checks from wrapping around to the next row. For a $3\times3$ board, $w=4$. To provide some more intuition, we provide some
-examples below.
+\section{Code Overview}
+
+\subsection{\texttt{game.py}}
+This file contains all of the source code for the \texttt{Game} class, which contains the core logic for the $(m,n,k)$-game. It is worth noting that we use a \textit{bitboard} for keeping track of \texttt{min}/\texttt{max} board states. We use this more advanced technique for a significant drop in latency, which allowed us to probe higher-order games with less compute.
+
+In our code, the board width is defined as $w = n + 1$. This creates a virtual "buffer column" to prevent horizontal win-checks from wrapping around to the next row. For a $3\times3$ board, $w=4$. To provide more intuition, we provide some examples below.
 
 \subsubsection*{Empty Board}
 Because $w=4$, the indices of the board are not strictly sequential. Indices $3, 7,$ and $11$ are skipped (they act as the buffer). The valid indices for the playable cells are shown below:
@@ -94,7 +95,8 @@ Because $w=4$, the indices of the board are not strictly sequential. Indices $3,
     \\[5pt]
     \textit{Figure 1: Bit index mapping for a $3\times3$ board with buffer $w=4$.}
 \end{center}
-Now we have indexed the board, we explain how to map board indices to bit representations.
+Having indexed the board, we now explain how to map board indices to bit representations.
+
 \subsubsection*{Populated Board}
 Let us continue with the example of a $3\times3$ board.
 Suppose \textbf{Max} (X) has moved twice and \textbf{Min} (O) has moved once.
@@ -113,8 +115,7 @@ Suppose \textbf{Max} (X) has moved twice and \textbf{Min} (O) has moved once.
     \textit{Figure 2: Game state with two Max pieces and one Min piece.}
 \end{center}
 
-To encode this information as a (binary) integer, we make use of the \textbf{bitshift} operation, denoted $\ll$. If we have some binary string
-$s$, $s \ll n$ is the bit string of $s$ followed by $n$ zeros. For example, if $s = 10101$ and $n=4$:
+To encode this information as a (binary) integer, we make use of the \textbf{bitshift} operation, denoted $\ll$. If we have some binary string $s$, then $s \ll n$ is the bit string of $s$ followed by $n$ zeros. For example, if $s = 10101$ and $n=4$:
 
 \begin{equation*}
     s \ll n = \dots 000101010000
@@ -142,7 +143,7 @@ To check if a square is occupied (as seen in \texttt{is\_valid\_move}), the code
 This integer uniquely represents the entire configuration of the board in memory, as the encoding function is a bijection.
 
 \subsubsection*{Win Detection}
-We check for wins using more highly efficient bitwise shifts rather than iterating through coordinates. To check for a winning line of length $k$, we iteratively shift the board and compute the bitwise AND.
+We check for wins using highly efficient bitwise shifts rather than iterating through coordinates. To check for a winning line of length $k$, we iteratively shift the board and compute the bitwise AND.
 
 For a vertical win check on a $3 \times 3$ board ($k=3, w=4$) with pieces at indices 0, 4, and 8:
 \[
@@ -157,7 +158,7 @@ The algorithm checks direction $d=4$ (Vertical):
           \[
               B_1 = 273 \ \& \ 17 = 17 \quad (\texttt{...000010001})
           \]
-          The AND will return true, as we have some overlapping 1's. This means that we have a vertical sequence of at least 2. We repeat again to test whether this sequences is also of length 3.
+          The AND operation returns a non-zero value, indicating overlapping 1's. This means we have a vertical sequence of at least 2. We repeat again to test whether this sequence is also of length 3.
 
     \item \textbf{Shift 2:} $B_2 = B_1 \ \& \ (B_1 \gg 4)$
           \[
@@ -167,38 +168,52 @@ The algorithm checks direction $d=4$ (Vertical):
               B_2 = 17 \ \& \ 1 = 1 \quad (\texttt{...000000001})
           \]
 \end{enumerate}
-Since AND will again return true, so we do indeed have a win. In the code, process is repeated for all four directions: Horizontal ($1$), Vertical ($w$), Diagonal ($w+1$), and Anti-Diagonal ($w-1$).
+Since the AND operation returns a non-zero value again, a win is confirmed. In the code, the process is repeated for all four directions: Horizontal ($1$), Vertical ($w$), Diagonal ($w+1$), and Anti-Diagonal ($w-1$).
 
-\subsection*{Memoization}
-Another computational optimisation used is \textit{memoization}. In the standard non-pruning MinMax, we cache the function values of visited states in order to drastically reduce the number of repeat calls.
-However, this direct caching strategy cannot be naively applied to Alpha-Beta pruning because the algorithm often returns a lower or upper bound dependent on the specific search window ($\alpha, \beta$) rather than the exact value of the node. More caching strategies can alleviate this issue,
-but did not consider them for this assignment.
+\subsection*{Memoisation}
+Another computational optimisation used is \textit{memoisation}. In the standard non-pruning Minimax, we cache the function values of visited states in order to drastically reduce the number of repeat calls.
+However, this direct caching strategy cannot be naively applied to $\alpha$-$\beta$ pruning because the algorithm often returns a lower or upper bound dependent on the specific search window ($\alpha, \beta$) rather than the exact value of the node. More complex caching strategies can alleviate this issue, but we did not consider them for this assignment.
 
 \subsection{\texttt{tests.py}}
-This file contains all of the logic for out code evaluation. The script automatically runs many games across the different search architectures.
-The results are printed in terminal as well as being saved to a csv file.
+This file contains all of the logic for our code evaluation. The script automatically runs many games across the different search architectures.
+The results are printed to the terminal as well as being saved to a csv file.
+
 \section{Results and Discussion}
-For our experiments, we benchmarked wall-clock time on the standard MinMax search with and without memoization, as well alpha/beta pruning. We explored a
-wide range of board sizes, but insisted a time cutoff of 100s to take a measurement.
+For our experiments, we benchmarked wall-clock time on the standard Minimax search with and without memoisation, as well as $\alpha$-$\beta$ pruning on the search for the first move of $\texttt{Max}$. We explored a wide range of board sizes, but insisted on a time cutoff of 100s to take a measurement. 
+
 \begin{table}[h]
     \centering
-    \begin{tabular}{lcccccc}
+    \begin{tabular}{lrrrrrr}
         \toprule
-                       & \multicolumn{2}{c}{\textbf{MM Memoization}} & \multicolumn{2}{c}{\textbf{MM No Memoization}} & \multicolumn{2}{c}{\textbf{Pruning}}                                                   \\
+         & \multicolumn{2}{c}{\textbf{MinMax Memo}} & \multicolumn{2}{c}{\textbf{MinMax NoMemo}} & \multicolumn{2}{c}{\textbf{Pruning}} \\
         \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
-        \textbf{Board} & \textbf{Time}                               & \textbf{Nodes}                                 & \textbf{Time}                        & \textbf{Nodes} & \textbf{Time} & \textbf{Nodes} \\
+        \textbf{Board} & Time & Nodes & Time & Nodes & Time & Nodes \\
         \midrule
-        (3,3,3)        & 0.07301s                                    & 16,168                                         & 0.65823s                             & 549,946        & 0.08058s      & 18,297         \\
-        (3,4,3)        & 0.34567s                                    & 391,063                                        & $>$100s                              & N/A            & 0.18935s      & 75,266         \\
-        (4,3,3)        & 0.39619s                                    & 391,063                                        & $>$100s                              & N/A            & 0.11013s      & 30,936         \\
-        (4,4,3)        & 20.73940s                                   & 23,453,345                                     & $>$100s                              & N/A            & 1.09564s      & 947,128        \\
-        (3,5,3)        & 7.14333s                                    & 8,813,674                                      & $>$100s                              & N/A            & 2.07480s      & 1,755,917      \\
-        (4,5,3)        & $>$100s                                     & N/A                                            & $>$100s                              & N/A            & 41.39088s     & 37,063,008     \\
-        (4,4,4)        & 44.79307s                                   & 51,562,425                                     & $>$100s                              & N/A            & $>$100s       & N/A            \\
-        (5,4,4)        & $>$100s                                     & N/A                                            & $>$100s                              & N/A            & $>$100s       & N/A            \\
+        (2,2,2) & 0.00005s & 41 & 0.00003s & 41 & 0.00003s & 21 \\
+        (2,3,2) & 0.00041s & 213 & 0.00012s & 285 & 0.00004s & 53 \\
+        (3,2,2) & 0.00040s & 213 & 0.00015s & 285 & 0.00004s & 51 \\
+        (3,3,2) & 0.00144s & 2110 & 0.00261s & 7002 & 0.00010s & 165 \\
+        (3,3,3) & 0.00909s & 16168 & 0.33609s & 549946 & 0.01108s & 18297 \\
+        (4,3,3) & 0.18725s & 391063 & $>$100s & N/A & 0.01969s & 30936 \\
+        (3,4,3) & 0.19418s & 391063 & $>$100s & N/A & 0.04748s & 75266 \\
+        (4,4,3) & 14.44474s & 23453345 & $>$100s & N/A & 0.59299s & 947128 \\
+        (4,4,4) & 32.57527s & 51562425 & $>$100s & N/A & $>$100s & N/A \\
+        (5,4,4) & $>$100s & N/A & $>$100s & N/A & $>$100s & N/A \\
+        (5,5,4) & $>$100s & N/A & $>$100s & N/A & $>$100s & N/A \\
         \bottomrule
     \end{tabular}
-    \caption{Performance comparison of Memoization, No Memoization, and Pruning.}
-    \label{tab:performance_comparison}
 \end{table}
+
+The experimental results clearly demonstrate the combinatorial explosion inherent in these search-based methods. The standard Minimax algorithm operates with a time complexity of $O(b^d)$, where $b$ is the effective branching factor (approximating $m \times n$ at the root) and $d$ is the search depth required to reach a terminal state. As observed in the transition from $(3,3,3)$ to $(4,4,4)$, a linear increase in board dimension results in an exponential increase in execution time. Regarding the number of visited states, the unoptimised Minimax required evaluating nearly $550,000$ nodes for a simple $3 \times 3$ game, confirming that the state space grows too rapidly for a complete solution without more advanced methods on larger boards.
+
+Looking at the unpruned methods, it is clear how powerful memoisation is for lowering latency. Since the $(m,n,k)$-game is Markovian (not history dependent), \textit{how} we reach a state is not important; the state itself contains all necessary information. Empirical analysis shows that on the $(3,3,3)$ board alone, there were over $500,000$ redundant calculations which were avoided by the memoised implementation. Though not measured for larger instances, this redundancy scales to higher boards, explaining why the standard method timed out so quickly.
+
+While $\alpha$-$\beta$ pruning theoretically improves the complexity to $O(b^{d/2})$ in the optimal case, it still struggled for larger configurations. The "N/A" entries for larger boards (e.g., $5 \times 5$) confirm the limits of basic pruning. However, the difference in visited states is significant; on the $(3,3,3)$ board, pruning reduced the search space from $\approx 550,000$ nodes to just $18,297$, a reduction of over $96\%$.
+
+We observe some interesting behaviours when directly comparing memoised Minimax against Pruning. It is not always the case that pruning yields lower latency. For example, on the $(4,4,4)$ grid, we observe that pruning takes over $100$s, whereas memoised Minimax takes only $32.5$s. 
+
+Pruning seems to be more effective on asymmetric boards. This makes sense as asymmetric dimensions or configurations where the winning line length $k$ is notably smaller than the board size (e.g., $(4,4,3)$) often lead to "shallower" winning states. In these scenarios, the algorithm discovers terminal states or strong heuristic values earlier in the tree, allowing it to prune vast subtrees. 
+
+However, in boards where there are no shallow win conditions, pruning is less effective and the raw strength of memoisation allows it to outperform other methods. Crucially, in all boards where pruning is not faster (such as the $(4,4,4)$ case), the end result is a draw. In a drawn game, $\alpha$-$\beta$ pruning is forced to search the entire tree to prove no win exists, rendering it unable to cut off branches. Memoisation excels here by recognising that distinct move orders lead to identical drawn states, preventing the re-evaluation of the same deep subtrees.
+
 \end{document}
