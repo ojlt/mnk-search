@@ -5,11 +5,11 @@ class Game:
         self.m = m
         self.n = n
         self.k = k
-        # width + 1 creates a 'buffer column' in the bit string. 
+        # width + 1 creates a 'buffer column' in the bit string.
         # (this prevents horizontal win-checks from wrapping around to the next row)
-        self.w = n + 1 
-        
-        #pPre-calculate shift amounts for win checking
+        self.w = n + 1
+
+        # pPre-calculate shift amounts for win checking
         shifts = []
         count = 1
         while count < k:
@@ -17,19 +17,23 @@ class Game:
             shifts.append(step)
             count += step
         self.check_shifts = tuple(shifts)
-        
- 
-        self.directions = (1, self.w, self.w + 1, self.w - 1)# directions: Horizontal, Vertical, Diagonal, Anti-Diagonal
-        
+
+        self.directions = (
+            1,
+            self.w,
+            self.w + 1,
+            self.w - 1,
+        )  # directions: Horizontal, Vertical, Diagonal, Anti-Diagonal
+
         # generate valid bit indices (skipping the buffer column)
         valid_indices = [r * self.w + c for r in range(m) for c in range(n)]
-        
+
         # mask representing a full board (for draw detection)
-        self.full_mask = sum(1 << i for i in valid_indices) 
-        
+        self.full_mask = sum(1 << i for i in valid_indices)
+
         # precomputed single-bit masks for every valid position
         self.move_masks = tuple((1 << i) for i in valid_indices)
-        
+
         # Initialize the game state
         self.initialize_game()
 
@@ -37,7 +41,7 @@ class Game:
         """Initializes the empty m x n board (Requirement 1a)."""
         self.max_board = 0  # Bitboard for Player Max
         self.min_board = 0  # Bitboard for Player Min
-        self.memo = {}      
+        self.memo = {}
         self.node_count = 0
 
     def get_coords_from_mask(self, mask):
@@ -86,7 +90,7 @@ class Game:
     def max_value(self, max_b, min_b):
         self.node_count += 1
         state_key = (max_b, min_b)
-        
+
         # check cache first
         if state_key in self.memo:
             return self.memo[state_key]
@@ -110,7 +114,7 @@ class Game:
             if not (occupied & mask):
                 # recurse: It's Min's turn now
                 score, _ = self.min_value(max_b | mask, min_b)
-                
+
                 # Max wants to maximize the score
                 if score > best_score:
                     best_score = score
@@ -122,7 +126,7 @@ class Game:
     def min_value(self, max_b, min_b):
         self.node_count += 1
         state_key = (max_b, min_b)
-        
+
         if state_key in self.memo:
             return self.memo[state_key]
 
@@ -143,7 +147,7 @@ class Game:
             if not (occupied & mask):
                 # recurse: It's Max's turn now
                 score, _ = self.max_value(max_b, min_b | mask)
-                
+
                 # Min wants to minimize the score
                 if score < best_score:
                     best_score = score
@@ -153,7 +157,7 @@ class Game:
         return (best_score, best_move)
 
     def get_best_move_no_memo(self):
-        # pure minimax without caching 
+        # pure minimax without caching
         self.node_count = 0
         return self.max_value_no_memo(self.max_board, self.min_board)
 
@@ -363,3 +367,4 @@ class Game:
 if __name__ == "__main__":
     g = Game(4, 3, 3)  # create a 4x3 board, 3-in-a-row wins
     g.play()
+

@@ -3,16 +3,17 @@
 import time
 import multiprocessing
 import csv
-from game_engine import Game  # importing from our previous file
+from game import Game  # importing from our previous file
 
 TIMEOUT_LIMIT = 100  # 5 minutes (or 100 seconds technically) - hard cutoff
+
 
 def worker(m, n, k, mode, queue):
     """Executes the specific game search algorithm in a separate process."""
     g = Game(m, n, k)  # <--- Initialization happens here, BEFORE the timer
 
     start_time = time.perf_counter()  # <--- Timer starts ONLY for the move search
-    
+
     # pick the algorithm based on mode string
     if mode == "minimax":
         g.get_best_move()
@@ -20,7 +21,7 @@ def worker(m, n, k, mode, queue):
         g.pruning_best_move()
     elif mode == "nomemo":
         g.get_best_move_no_memo()
-        
+
     end_time = time.perf_counter()  # <--- Timer stops
 
     # send time and node count back to parent process
@@ -65,7 +66,7 @@ def run_suite():
         (5, 4, 4),
         (5, 5, 4),  # this one might time out without pruning
     ]
-    
+
     # Adjusting formatting to fit the new columns for console output
     header = (
         f"{'Board':<9} | "
@@ -121,3 +122,4 @@ def run_suite():
 
 if __name__ == "__main__":
     run_suite()
+
