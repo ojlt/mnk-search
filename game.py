@@ -24,6 +24,16 @@ class Game:
         self.full_mask = sum(1 << i for i in valid_indices)
         self.move_masks = tuple((1 << i) for i in valid_indices)
 
+        # Generate Search Order Center-Out Indices
+        center_r, center_c = self.m // 2, self.n // 2
+        coords = [(r, c) for r in range(self.m) for c in range(self.n)]
+        coords.sort(key=lambda x: abs(x[0] - center_r) + abs(x[1] - center_c))
+
+        # Store a flattened bit indices (i.e 0 to 15 for 4x4)
+        self.search_indices = [1 << (r * self.n + c) for r, c in coords]
+
+
+
     def get_coords_from_mask(self, mask):
         if not mask:
             return None
@@ -75,7 +85,7 @@ class Game:
         best_score = -2
         best_move = None
 
-        for mask in self.move_masks:
+        for mask in self.search_indices:
             if not (occupied & mask):
                 score, _ = self.min_value(max_b | mask, min_b)
                 if score > best_score:
@@ -103,7 +113,7 @@ class Game:
         best_score = 2
         best_move = None
 
-        for mask in self.move_masks:
+        for mask in self.search_indices:
             if not (occupied & mask):
                 score, _ = self.max_value(max_b, min_b | mask)
                 if score < best_score:
@@ -130,7 +140,7 @@ class Game:
         best_score = -2
         best_move = None
 
-        for mask in self.move_masks:
+        for mask in self.search_indices:
             if not (occupied & mask):
                 score, _ = self.min_value_no_memo(max_b | mask, min_b)
 
@@ -153,7 +163,7 @@ class Game:
         best_score = 2
         best_move = None
 
-        for mask in self.move_masks:
+        for mask in self.search_indices:
             if not (occupied & mask):
                 score, _ = self.max_value_no_memo(max_b, min_b | mask)
 
@@ -180,7 +190,7 @@ class Game:
         best_score = -2
         best_move = None
 
-        for mask in self.move_masks:
+        for mask in self.search_indices:
             if not (occupied & mask):
                 score, _ = self.pruning_min(max_b | mask, min_b, alpha, beta)
 
@@ -209,7 +219,7 @@ class Game:
         best_score = 2
         best_move = None
 
-        for mask in self.move_masks:
+        for mask in self.search_indices:
             if not (occupied & mask):
                 score, _ = self.pruning_max(max_b, min_b | mask, alpha, beta)
 
