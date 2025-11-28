@@ -10,14 +10,18 @@ TIMEOUT_LIMIT = 100  # 5 minutes
 
 def worker(m, n, k, mode, queue):
     """Executes the specific game search algorithm in a separate process."""
-    g = Game(m, n, k)
+    g = Game(m, n, k)  # <--- Initialization happens here, BEFORE the timer
+
+    start_time = time.perf_counter()  # <--- Timer starts ONLY for the move search
     if mode == "minimax":
         g.get_best_move()
     elif mode == "pruning":
         g.pruning_best_move()
     elif mode == "nomemo":
         g.get_best_move_no_memo()
-    queue.put(g.node_count)
+    end_time = time.perf_counter()  # <--- Timer stops
+
+    queue.put((end_time - start_time, g.node_count))
 
 
 def run_with_timeout(m, n, k, mode):
@@ -25,7 +29,6 @@ def run_with_timeout(m, n, k, mode):
     queue = multiprocessing.Queue()
     p = multiprocessing.Process(target=worker, args=(m, n, k, mode, queue))
 
-    start = time.perf_counter()
     p.start()
     p.join(timeout=TIMEOUT_LIMIT)
 
@@ -34,10 +37,11 @@ def run_with_timeout(m, n, k, mode):
         p.join()
         return f">{TIMEOUT_LIMIT}s", "N/A"
 
-    end = time.perf_counter()
-    elapsed = end - start
-    nodes = queue.get() if not queue.empty() else "Error"
-    return f"{elapsed:.5f}s", str(nodes)
+    if not queue.empty():
+        elapsed, nodes = queue.get()
+        return f"{elapsed:.5f}s", str(nodes)
+
+    return "Error", "Error"
 
 
 def run_suite():
