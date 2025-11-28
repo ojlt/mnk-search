@@ -32,7 +32,6 @@ __pycache__/
 ### PDF Output ###
 # Usually, you do not want to version control the generated PDF
 # as it bloats the repo size.
-*.pdf
 
 ### Editor/IDE Specific ###
 # Kile, TeXShop, TeXworks, etc.
